@@ -1,0 +1,33 @@
+# Composer
+/vendor/
+composer.lock
+auth.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+/src/Resources/public/
+/src/Resources/app/administration/dist/
+/src/Resources/app/storefront/dist/
+
+# Node modules
+node_modules/
+package-lock.json
+yarn.lock
+
+# Testing
+.phpunit.result.cache
+/tests/coverage/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.cache

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Login overlay */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        #login-overlay.hidden { display: none; }
+
+        .login-box {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 2rem;
+            width: 360px;
+        }
+        .login-box h2 { margin-bottom: 1.5rem; color: #e94560; }
+        .login-box label { display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: #999; }
+        .login-box input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 1rem;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+        }
+        .login-box input:focus { outline: none; border-color: #e94560; }
+        .login-box button {
+            width: 100%;
+            padding: 0.6rem;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .login-box button:hover { background: #c73e54; }
+        .login-error { color: #e94560; font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+        /* Main layout */
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Left panel */
+        .panel-left {
+            width: 380px;
+            min-width: 380px;
+            background: #16213e;
+            border-right: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #0f3460;
+        }
+        .panel-header h1 {
+            font-size: 1.1rem;
+            color: #e94560;
+        }
+
+        .panel-body {
+            padding: 1rem 1.25rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select, input[type="text"] {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+        select:focus, input[type="text"]:focus { outline: none; border-color: #e94560; }
+
+        .order-search-wrap { position: relative; }
+        #order-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+            display: none;
+        }
+        #order-results.visible { display: block; }
+        .order-result-item {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #0f3460;
+        }
+        .order-result-item:hover { background: #0f3460; }
+        .order-result-item .order-num { color: #e94560; font-weight: 600; }
+        .order-result-item .order-meta { color: #888; font-size: 0.75rem; }
+
+        /* JSON editor */
+        #config-editor {
+            width: 100%;
+            min-height: 200px;
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            color: #a8d8ea;
+            font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+            tab-size: 2;
+        }
+        #config-editor:focus { outline: none; border-color: #e94560; }
+
+        .btn-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary { background: #e94560; color: #fff; }
+        .btn-primary:hover { background: #c73e54; }
+        .btn-primary:disabled { background: #555; cursor: not-allowed; }
+        .btn-secondary { background: #0f3460; color: #e0e0e0; }
+        .btn-secondary:hover { background: #1a4a7a; }
+
+        .toggle-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .toggle-row label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.85rem;
+            color: #ccc;
+            text-transform: none;
+            letter-spacing: 0;
+            cursor: pointer;
+        }
+
+        /* Status */
+        #status {
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid #0f3460;
+            font-size: 0.8rem;
+            color: #888;
+            min-height: 2.5rem;
+        }
+        #status.error { color: #e94560; }
+        #status.success { color: #4ecca3; }
+
+        /* Right panel */
+        .panel-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #e0e0e0;
+        }
+
+        .preview-tabs {
+            display: flex;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+        }
+        .preview-tab {
+            padding: 0.5rem 1.25rem;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .preview-tab.active { color: #e94560; border-bottom-color: #e94560; }
+
+        .preview-content {
+            flex: 1;
+            position: relative;
+        }
+
+        #pdf-frame, #html-frame {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        #html-frame { background: #fff; }
+
+        .preview-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+            color: #999;
+            font-size: 1.1rem;
+        }
+
+        /* Error detail */
+        .error-detail {
+            position: absolute;
+            inset: 0;
+            background: #1a1a2e;
+            color: #e94560;
+            padding: 2rem;
+            overflow: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-overlay">
+    <div class="login-box">
+        <h2>Document Preview</h2>
+        <div id="login-error" class="login-error"></div>
+        <label for="login-user">Username</label>
+        <input type="text" id="login-user" value="admin" autofocus>
+        <label for="login-pass">Password</label>
+        <input type="password" id="login-pass">
+        <button onclick="doLogin()">Login</button>
+    </div>
+</div>
+
+<!-- Main UI -->
+<div class="container">
+    <div class="panel-left">
+        <div class="panel-header">
+            <h1>Document Preview</h1>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                <label for="order-search">Order</label>
+                <div class="order-search-wrap">
+                    <input type="text" id="order-search" placeholder="Search by order number..." autocomplete="off">
+                    <div id="order-results"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="doc-type">Document Type</label>
+                <select id="doc-type">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Output</label>
+                <div class="toggle-row">
+                    <label><input type="radio" name="fileType" value="pdf" checked> PDF</label>
+                    <label><input type="radio" name="fileType" value="html"> HTML</label>
+                </div>
+            </div>
+
+            <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                    <label for="config-editor" style="margin-bottom:0;">Document Config (JSON)</label>
+                    <button class="btn btn-secondary" style="flex:none; padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="loadConfig()">Reload from DB</button>
+                </div>
+                <textarea id="config-editor">{}</textarea>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" id="render-btn" onclick="renderDocument()">Render PDF</button>
+                <button class="btn btn-secondary" onclick="renderDocument('html')">Render HTML</button>
+            </div>
+        </div>
+        <div id="status">Ready</div>
+    </div>
+
+    <div class="panel-right">
+        <div class="preview-tabs">
+            <button class="preview-tab active" data-tab="pdf" onclick="switchTab('pdf')">PDF</button>
+            <button class="preview-tab" data-tab="html" onclick="switchTab('html')">HTML</button>
+        </div>
+        <div class="preview-content">
+            <div class="preview-placeholder" id="placeholder">Select an order and click Render</div>
+            <iframe id="pdf-frame" style="display:none"></iframe>
+            <iframe id="html-frame" style="display:none"></iframe>
+            <div class="error-detail" id="error-detail"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BASE = window.location.origin;
+    let accessToken = '';
+    let selectedOrderId = '';
+    let searchTimeout = null;
+
+    // --- Auth ---
+    async function doLogin() {
+        const user = document.getElementById('login-user').value;
+        const pass = document.getElementById('login-pass').value;
+        const errEl = document.getElementById('login-error');
+        errEl.textContent = '';
+
+        try {
+            const res = await fetch(`${BASE}/api/oauth/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    grant_type: 'password',
+                    client_id: 'administration',
+                    username: user,
+                    password: pass,
+                }),
+            });
+            if (!res.ok) {
+                errEl.textContent = 'Invalid credentials';
+                return;
+            }
+            const data = await res.json();
+            accessToken = data.access_token;
+            document.getElementById('login-overlay').classList.add('hidden');
+            loadDocumentTypes();
+        } catch (e) {
+            errEl.textContent = 'Connection error: ' + e.message;
+        }
+    }
+
+    document.getElementById('login-pass').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doLogin();
+    });
+
+    function apiHeaders() {
+        return {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        };
+    }
+
+    // --- Document Types ---
+    async function loadDocumentTypes() {
+        try {
+            const res = await fetch(`${BASE}/api/_action/bepo-document-preview/document-types`, {
+                headers: apiHeaders(),
+            });
+            const types = await res.json();
+            const sel = document.getElementById('doc-type');
+            sel.innerHTML = '';
+            types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.technicalName;
+                opt.textContent = t.name + ' (' + t.technicalName + ')';
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            setStatus('Failed to load document types: ' + e.message, 'error');
+        }
+    }
+
+    // --- Order Search ---
+    const orderSearch = document.getElementById('order-search');
+    const orderResults = document.getElementById('order-results');
+
+    orderSearch.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => searchOrders(orderSearch.value), 300);
+    });
+
+    orderSearch.addEventListener('focus', () => {
+        if (orderResults.children.length > 0) orderResults.classList.add('visible');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.order-search-wrap')) {
+            orderResults.classList.remove('visible');
+        }
+    });
+
+    async function searchOrders(term) {
+        try {
+            const res = await fetch(`${BASE}/api/_action/bepo-document-preview/orders?term=${encodeURIComponent(term)}`, {
+                headers: apiHeaders(),
+            });
+            const orders = await res.json();
+            orderResults.innerHTML = '';
+            orders.forEach(o => {
+                const div = document.createElement('div');
+                div.className = 'order-result-item';
+                div.innerHTML = `<span class="order-num">${o.orderNumber}</span> &mdash; ${o.customerName}<br><span class="order-meta">${o.orderDate} &bull; ${Number(o.amountTotal).toFixed(2)} EUR</span>`;
+                div.addEventListener('click', () => selectOrder(o));
+                orderResults.appendChild(div);
+            });
+            orderResults.classList.add('visible');
+        } catch (e) {
+            setStatus('Search failed: ' + e.message, 'error');
+        }
+    }
+
+    function selectOrder(order) {
+        selectedOrderId = order.id;
+        orderSearch.value = `${order.orderNumber} — ${order.customerName}`;
+        orderResults.classList.remove('visible');
+        setStatus(`Selected order ${order.orderNumber}`, 'success');
+        loadConfig();
+    }
+
+    // --- Config Loading ---
+    document.getElementById('doc-type').addEventListener('change', () => {
+        if (selectedOrderId) loadConfig();
+    });
+
+    async function loadConfig() {
+        if (!selectedOrderId) return;
+        const docType = document.getElementById('doc-type').value;
+        if (!docType) return;
+
+        setStatus('Loading config...', '');
+        try {
+            const res = await fetch(
+                `${BASE}/api/_action/bepo-document-preview/config?orderId=${selectedOrderId}&documentType=${encodeURIComponent(docType)}`,
+                { headers: apiHeaders() },
+            );
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setStatus('Config load failed: ' + (err.error || res.statusText), 'error');
+                return;
+            }
+            const config = await res.json();
+            document.getElementById('config-editor').value = JSON.stringify(config, null, 2);
+            setStatus('Config loaded', 'success');
+        } catch (e) {
+            setStatus('Config load error: ' + e.message, 'error');
+        }
+    }
+
+    // --- Render ---
+    async function renderDocument(forceFileType) {
+        if (!selectedOrderId) {
+            setStatus('Please select an order first', 'error');
+            return;
+        }
+
+        const docType = document.getElementById('doc-type').value;
+        const fileTypeRadio = document.querySelector('input[name="fileType"]:checked');
+        const fileType = forceFileType || fileTypeRadio.value;
+
+        let config = {};
+        try {
+            config = JSON.parse(document.getElementById('config-editor').value);
+        } catch (e) {
+            setStatus('Invalid JSON in config: ' + e.message, 'error');
+            return;
+        }
+
+        const renderBtn = document.getElementById('render-btn');
+        renderBtn.disabled = true;
+        setStatus('Rendering...', '');
+
+        const endpoint = fileType === 'html'
+            ? `${BASE}/api/_action/bepo-document-preview/render-html`
+            : `${BASE}/api/_action/bepo-document-preview/render`;
+
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orderId: selectedOrderId,
+                    documentType: docType,
+                    fileType: fileType,
+                    config: config,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                showError(err);
+                setStatus('Render failed: ' + (err.error || res.statusText), 'error');
+                return;
+            }
+
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('error-detail').style.display = 'none';
+
+            if (fileType === 'html') {
+                const html = await res.text();
+                const htmlFrame = document.getElementById('html-frame');
+                htmlFrame.srcdoc = html;
+                htmlFrame.style.display = 'block';
+                document.getElementById('pdf-frame').style.display = 'none';
+                switchTab('html');
+            } else {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const pdfFrame = document.getElementById('pdf-frame');
+                pdfFrame.src = url;
+                pdfFrame.style.display = 'block';
+                document.getElementById('html-frame').style.display = 'none';
+                switchTab('pdf');
+            }
+
+            setStatus('Rendered successfully', 'success');
+        } catch (e) {
+            setStatus('Render error: ' + e.message, 'error');
+        } finally {
+            renderBtn.disabled = false;
+        }
+    }
+
+    function showError(err) {
+        const el = document.getElementById('error-detail');
+        el.textContent = err.error + (err.trace ? '\n\n' + err.trace : '');
+        el.style.display = 'block';
+        document.getElementById('pdf-frame').style.display = 'none';
+        document.getElementById('html-frame').style.display = 'none';
+        document.getElementById('placeholder').style.display = 'none';
+    }
+
+    // --- Tabs ---
+    function switchTab(tab) {
+        document.querySelectorAll('.preview-tab').forEach(t => {
+            t.classList.toggle('active', t.dataset.tab === tab);
+        });
+    }
+
+    // --- Status ---
+    function setStatus(msg, type) {
+        const el = document.getElementById('status');
+        el.textContent = msg;
+        el.className = type || '';
+    }
+
+    // --- Keyboard shortcut ---
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            renderDocument();
+        }
+    });
+
+    // Initial order search on load (show recent orders)
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('login-pass').focus();
+    });
+</script>
+
+</body>
+</html>

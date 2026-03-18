@@ -1,0 +1,31 @@
+{
+    "name": "bepo/document-preview",
+    "description": "Interactive document template preview tool for Shopware 6",
+    "version": "1.0.0",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Benny Poensgen"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Bepo\\DocumentPreview\\": "src/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "Bepo\\DocumentPreview\\BepoDocumentPreview",
+        "label": {
+            "de-DE": "Dokument-Vorschau",
+            "en-GB": "Document Preview"
+        },
+        "description": {
+            "de-DE": "Interaktive Vorschau für Dokumentvorlagen",
+            "en-GB": "Interactive preview for document templates"
+        }
+    },
+    "require": {
+        "shopware/core": "~6.7.0"
+    }
+}
