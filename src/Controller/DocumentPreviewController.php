@@ -7,20 +7,25 @@ namespace Bepo\DocumentPreview\Controller;
 use Dompdf\Adapter\CPDF;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Checkout\Document\DocumentConfigurationFactory;
 use Shopware\Core\Checkout\Document\Renderer\OrderDocumentCriteriaFactory;
 use Shopware\Core\Checkout\Document\Service\DocumentConfigLoader;
 use Shopware\Core\Checkout\Document\Twig\DocumentTemplateRenderer;
+use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\ContainsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
+use Shopware\Core\Checkout\Customer\Validation\Constraint\CustomerVatIdentification;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route(defaults: ['_routeScope' => ['api']])]
 class DocumentPreviewController extends AbstractController
@@ -37,6 +42,7 @@ class DocumentPreviewController extends AbstractController
         private readonly DocumentConfigLoader $configLoader,
         private readonly EntityRepository $orderRepository,
         private readonly EntityRepository $documentTypeRepository,
+        private readonly ValidatorInterface $validator,
         private readonly string $projectDir,
     ) {
     }
@@ -248,6 +254,14 @@ class DocumentPreviewController extends AbstractController
             };
             $config->custom = $custom;
 
+            // Apply renderer-level logic that normally happens in InvoiceRenderer etc.
+            $config->merge([
+                'intraCommunityDelivery' => $this->isAllowIntraCommunityDelivery(
+                    $config->jsonSerialize(),
+                    $order,
+                ),
+            ]);
+
             // Build template parameters
             $parameters = [
                 'order' => $order,
@@ -301,6 +315,53 @@ class DocumentPreviewController extends AbstractController
                 'trace' => $e->getTraceAsString(),
             ], 500);
         }
+    }
+
+    private function isAllowIntraCommunityDelivery(array $config, OrderEntity $order): bool
+    {
+        if (($config['displayAdditionalNoteDelivery'] ?? false) === false) {
+            return false;
+        }
+
+        $customerType = $order->getOrderCustomer()?->getCustomer()?->getAccountType();
+        if ($customerType !== CustomerEntity::ACCOUNT_TYPE_BUSINESS) {
+            return false;
+        }
+
+        $orderDelivery = $order->getDeliveries()?->first();
+        if (!$orderDelivery) {
+            return false;
+        }
+
+        $shippingAddress = $orderDelivery->getShippingOrderAddress();
+        $country = $shippingAddress?->getCountry();
+        if ($country === null) {
+            return false;
+        }
+
+        $isCompanyTaxFree = $country->getCompanyTax()->getEnabled();
+        $isPartOfEu = $country->getIsEu();
+
+        if (!$isCompanyTaxFree || !$isPartOfEu) {
+            return false;
+        }
+
+        // Validate VAT ID format
+        if ($country->getCheckVatIdPattern() === false) {
+            return true;
+        }
+
+        $vatIds = $order->getOrderCustomer()?->getVatIds();
+        if (!\is_array($vatIds)) {
+            return false;
+        }
+
+        $violations = $this->validator->validate($vatIds, [
+            new NotBlank(),
+            new CustomerVatIdentification(countryId: $country->getId()),
+        ]);
+
+        return $violations->count() === 0;
     }
 
     private function injectPageCount(Dompdf $dompdf): void
