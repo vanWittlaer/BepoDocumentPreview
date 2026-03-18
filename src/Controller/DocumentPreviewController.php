@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bepo\DocumentPreview\Controller;
 
+use Dompdf\Adapter\CPDF;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Shopware\Core\Checkout\Document\DocumentConfigurationFactory;
@@ -286,6 +287,7 @@ class DocumentPreviewController extends AbstractController
             );
             $dompdf->loadHtml($html);
             $dompdf->render();
+            $this->injectPageCount($dompdf);
 
             $pdf = (string) $dompdf->output();
 
@@ -299,5 +301,25 @@ class DocumentPreviewController extends AbstractController
                 'trace' => $e->getTraceAsString(),
             ], 500);
         }
+    }
+
+    private function injectPageCount(Dompdf $dompdf): void
+    {
+        /** @var CPDF $canvas */
+        $canvas = $dompdf->getCanvas();
+        $search = $this->insertNullByteBeforeEachCharacter('DOMPDF_PAGE_COUNT_PLACEHOLDER');
+        $replace = $this->insertNullByteBeforeEachCharacter((string) $canvas->get_page_count());
+        $pdf = $canvas->get_cpdf();
+
+        foreach ($pdf->objects as &$o) {
+            if ($o['t'] === 'contents') {
+                $o['c'] = str_replace($search, $replace, (string) $o['c']);
+            }
+        }
+    }
+
+    private function insertNullByteBeforeEachCharacter(string $string): string
+    {
+        return "\u{0000}" . substr(chunk_split($string, 1, "\u{0000}"), 0, -1);
     }
 }
